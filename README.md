@@ -4,7 +4,9 @@
 
 I started this from a Udemy Go microservices course.
 
-This repo is that project after a cleanup pass: shared packages, config from env, proper Docker setup, tests, and CI. The interesting part of the course is still here — one broker talking to other services over **HTTP**, **net/rpc**, **gRPC**, and **RabbitMQ**.
+This repo is that project after a cleanup pass: shared packages, config from env, proper Docker setup, tests, and CI. The interesting part of the course is still here - one broker talking to other services over **HTTP**, **net/rpc**, **gRPC**, and **RabbitMQ**.
+
+![API Console — logging via gRPC](docs/images/api-console.png)
 
 ## How it fits together
 
@@ -15,15 +17,6 @@ Everything goes through the **broker** on port `8080`. The little **API Console*
 - **Mail** sends through Mailhog so you can peek at messages in the browser (`:8025`) instead of a real inbox.
 
 Shared stuff lives in [`pkg/`](pkg/) (JSON helpers, config, Rabbit dial, HTTP server). The gRPC contract is a single proto under [`contracts/`](contracts/).
-
-| Service | What it does |
-|---------|----------------|
-| broker-service | Gateway — `/handle` and `/log-grpc` |
-| authentication-service | Login against Postgres |
-| logger-service | Store logs (HTTP + RPC `:5001` + gRPC `:50001`) |
-| mail-service | SMTP via Mailhog |
-| listener-service | RabbitMQ consumer → logger |
-| front-end | API Console |
 
 ## Run it
 
@@ -38,9 +31,9 @@ docker compose -f project/docker-compose.yml --env-file project/.env up --build 
 
 Then open:
 
-- Console → http://localhost:8088
-- Broker → http://localhost:8080
-- Mailhog → http://localhost:8025
+- Console - http://localhost:8088
+- Broker - http://localhost:8080
+- Mailhog - http://localhost:8025
 
 Demo login: `admin@example.com` / `verysecret`
 
@@ -52,16 +45,16 @@ On `POST /handle` with `"action": "log"`, set `"transport"` to one of:
 
 | `transport` | What happens |
 |-------------|--------------|
-| `rpc` (default) | broker → logger over `net/rpc` |
-| `http` | broker → logger `/log` |
-| `grpc` | broker → logger gRPC |
+| `rpc` (default) | broker - logger over `net/rpc` |
+| `http` | broker - logger `/log` |
+| `grpc` | broker - logger gRPC |
 | `rabbit` | broker publishes to `logs_topic`, listener picks it up |
 
 Same flows are in the console and in [`docs/postman/`](docs/postman/).
 
 ## Config
 
-Env vars only — see [`project/.env.example`](project/.env.example). The usual ones: `DSN`, `RABBITMQ_URL`, `MONGO_*`, service URLs, `LOG_LEVEL`, `SHUTDOWN_TIMEOUT`.
+Env vars only - see [`project/.env.example`](project/.env.example). The usual ones: `DSN`, `RABBITMQ_URL`, `MONGO_*`, service URLs, `LOG_LEVEL`, `SHUTDOWN_TIMEOUT`.
 
 ## Dev commands
 
@@ -80,4 +73,4 @@ Pushes and PRs run vet + tests + a Docker build for each service (`.github/workf
 
 ## What's intentionally not here
 
-No JWT rewrite, no mTLS, no full observability stack. It's still a local demo — just one I'd actually show someone, with graceful shutdown, health checks, structured logs, and CI instead of course leftovers.
+No JWT rewrite, no mTLS, no full observability stack. It's still a local demo - just one I'd actually show someone, with graceful shutdown, health checks, structured logs, and CI instead of course leftovers.
