@@ -1,0 +1,36 @@
+# Binaries
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+bin/
+dist/
+
+# Env / secrets
+.env
+.env.local
+*.pem
+
+# IDE / OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Coverage / tooling
+coverage.out
+coverage.html
+*.coverprofile
+
+# Local Docker volumes
+project/db-data/
+
+# Generated / vendor (keep contracts generated sources committed)
+vendor/
+
+# Go workspace local overrides
+go.work.sum

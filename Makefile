@@ -1,0 +1,49 @@
+.PHONY: tidy test lint build up down proto
+
+tidy:
+	cd pkg && go mod tidy
+	cd contracts && go mod tidy
+	cd authentication-service && go mod tidy
+	cd broker-service && go mod tidy
+	cd logger-service && go mod tidy
+	cd mail-service && go mod tidy
+	cd listener-service && go mod tidy
+	cd front-end && go mod tidy
+
+test:
+	go test ./pkg/...
+	go test ./contracts/...
+	go test ./authentication-service/...
+	go test ./broker-service/...
+	go test ./logger-service/...
+	go test ./mail-service/...
+	go test ./listener-service/...
+	go test ./front-end/...
+
+lint:
+	go vet ./pkg/...
+	go vet ./authentication-service/...
+	go vet ./broker-service/...
+	go vet ./logger-service/...
+	go vet ./mail-service/...
+	go vet ./listener-service/...
+	go vet ./front-end/...
+
+build:
+	cd authentication-service && CGO_ENABLED=0 go build -o ../bin/authentication-service ./cmd/api
+	cd broker-service && CGO_ENABLED=0 go build -o ../bin/broker-service ./cmd/api
+	cd logger-service && CGO_ENABLED=0 go build -o ../bin/logger-service ./cmd/api
+	cd mail-service && CGO_ENABLED=0 go build -o ../bin/mail-service ./cmd/api
+	cd listener-service && CGO_ENABLED=0 go build -o ../bin/listener-service .
+	cd front-end && CGO_ENABLED=0 go build -o ../bin/front-end ./cmd/web
+
+up:
+	docker compose -f project/docker-compose.yml --env-file project/.env up --build -d
+
+down:
+	docker compose -f project/docker-compose.yml --env-file project/.env down
+
+proto:
+	protoc -I=contracts --go_out=contracts --go_opt=paths=source_relative \
+		--go-grpc_out=contracts --go-grpc_opt=paths=source_relative \
+		contracts/logs/logs.proto

@@ -1,0 +1,195 @@
+services:
+  front-end:
+    build:
+      context: ..
+      dockerfile: front-end/front-end.dockerfile
+    restart: unless-stopped
+    ports:
+      - "8088:80"
+    environment:
+      PORT: "80"
+      BROKER_URL: ${BROKER_URL:-http://localhost:8080}
+      TEMPLATES_DIR: /app/templates
+      STATIC_DIR: /app/static
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      SHUTDOWN_TIMEOUT: ${SHUTDOWN_TIMEOUT:-10s}
+    depends_on:
+      - broker-service
+
+  broker-service:
+    build:
+      context: ..
+      dockerfile: broker-service/broker-service.dockerfile
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    environment:
+      PORT: "80"
+      AUTH_URL: ${AUTH_URL}
+      LOGGER_HTTP_URL: ${LOGGER_HTTP_URL}
+      LOGGER_RPC_ADDR: ${LOGGER_RPC_ADDR}
+      LOGGER_GRPC_ADDR: ${LOGGER_GRPC_ADDR}
+      MAIL_URL: ${MAIL_URL}
+      RABBITMQ_URL: ${RABBITMQ_URL}
+      HTTP_CLIENT_TIMEOUT: ${HTTP_CLIENT_TIMEOUT}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      SHUTDOWN_TIMEOUT: ${SHUTDOWN_TIMEOUT:-10s}
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      authentication-service:
+        condition: service_started
+      logger-service:
+        condition: service_started
+      mail-service:
+        condition: service_started
+
+  authentication-service:
+    build:
+      context: ..
+      dockerfile: authentication-service/authentication-service.dockerfile
+    restart: unless-stopped
+    ports:
+      - "8081:80"
+    environment:
+      PORT: "80"
+      DSN: ${DSN}
+      LOGGER_HTTP_URL: ${LOGGER_HTTP_URL}
+      DB_MAX_RETRIES: "15"
+      HTTP_CLIENT_TIMEOUT: ${HTTP_CLIENT_TIMEOUT}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      SHUTDOWN_TIMEOUT: ${SHUTDOWN_TIMEOUT:-10s}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      logger-service:
+        condition: service_started
+
+  logger-service:
+    build:
+      context: ..
+      dockerfile: logger-service/logger-service.dockerfile
+    restart: unless-stopped
+    environment:
+      PORT: "80"
+      RPC_PORT: "5001"
+      GRPC_PORT: "50001"
+      MONGO_URL: ${MONGO_URL}
+      MONGO_USER: ${MONGO_USER}
+      MONGO_PASSWORD: ${MONGO_PASSWORD}
+      MONGO_DB: ${MONGO_DB}
+      MONGO_COLLECTION: ${MONGO_COLLECTION}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      SHUTDOWN_TIMEOUT: ${SHUTDOWN_TIMEOUT:-10s}
+    depends_on:
+      mongo:
+        condition: service_healthy
+
+  mail-service:
+    build:
+      context: ..
+      dockerfile: mail-service/mail-service.dockerfile
+    restart: unless-stopped
+    ports:
+      - "8082:80"
+    environment:
+      PORT: "80"
+      MAIL_DOMAIN: ${MAIL_DOMAIN}
+      MAIL_HOST: ${MAIL_HOST}
+      MAIL_ENCRYPTION: ${MAIL_ENCRYPTION}
+      MAIL_SMTP_PORT: ${MAIL_SMTP_PORT}
+      MAIL_USERNAME: ${MAIL_USERNAME}
+      MAIL_PASSWORD: ${MAIL_PASSWORD}
+      MAIL_FROM_NAME: ${MAIL_FROM_NAME}
+      MAIL_FROM_ADDRESS: ${MAIL_FROM_ADDRESS}
+      TEMPLATES_DIR: ${TEMPLATES_DIR}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      SHUTDOWN_TIMEOUT: ${SHUTDOWN_TIMEOUT:-10s}
+    depends_on:
+      - mailhog
+
+  listener-service:
+    build:
+      context: ..
+      dockerfile: listener-service/listener-service.dockerfile
+    restart: unless-stopped
+    environment:
+      RABBITMQ_URL: ${RABBITMQ_URL}
+      LOGGER_HTTP_URL: ${LOGGER_HTTP_URL}
+      HTTP_CLIENT_TIMEOUT: ${HTTP_CLIENT_TIMEOUT}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      logger-service:
+        condition: service_started
+
+  postgres:
+    image: postgres:14.2
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - ./db-data/postgres:/var/lib/postgresql/data/
+      - ./db-init/users.sql:/docker-entrypoint-initdb.d/users.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  mongo:
+    # Keep major version aligned with project/db-data/mongo (FCV). Mismatch → exit 62 / unhealthy.
+    image: mongo:9
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_DATABASE: ${MONGO_INITDB_DATABASE}
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD}
+    volumes:
+      - ./db-data/mongo/:/data/db
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "mongosh",
+          "--quiet",
+          "-u",
+          "${MONGO_INITDB_ROOT_USERNAME}",
+          "-p",
+          "${MONGO_INITDB_ROOT_PASSWORD}",
+          "--authenticationDatabase",
+          "admin",
+          "--eval",
+          "db.adminCommand('ping').ok",
+        ]
+      interval: 5s
+      timeout: 10s
+      retries: 20
+      start_period: 40s
+
+  mailhog:
+    image: mailhog/mailhog:latest
+    restart: unless-stopped
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+
+  rabbitmq:
+    image: rabbitmq:4.3-alpine
+    restart: unless-stopped
+    ports:
+      - "5672:5672"
+    volumes:
+      - ./db-data/rabbitmq/:/var/lib/rabbitmq/
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 12

@@ -1,0 +1,69 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.27.3"
+          cache-dependency-path: |
+            pkg/go.sum
+            contracts/go.sum
+            authentication-service/go.sum
+            broker-service/go.sum
+            logger-service/go.sum
+            mail-service/go.sum
+            listener-service/go.sum
+            front-end/go.sum
+
+      - name: Tidy modules
+        run: |
+          for d in pkg contracts authentication-service broker-service logger-service mail-service listener-service front-end; do
+            (cd "$d" && go mod tidy)
+          done
+
+      - name: Vet
+        run: |
+          go vet ./pkg/...
+          go vet ./authentication-service/...
+          go vet ./broker-service/...
+          go vet ./logger-service/...
+          go vet ./mail-service/...
+          go vet ./listener-service/...
+          go vet ./front-end/...
+
+      - name: Test
+        run: |
+          go test ./pkg/...
+          go test ./authentication-service/...
+          go test ./broker-service/...
+          go test ./logger-service/...
+          go test ./mail-service/...
+          go test ./listener-service/...
+          go test ./front-end/...
+
+  docker:
+    runs-on: ubuntu-latest
+    needs: test
+    strategy:
+      fail-fast: false
+      matrix:
+        service:
+          - authentication-service
+          - broker-service
+          - logger-service
+          - mail-service
+          - listener-service
+          - front-end
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build ${{ matrix.service }}
+        run: docker build -f ${{ matrix.service }}/${{ matrix.service }}.dockerfile -t go-micro-${{ matrix.service }}:ci .

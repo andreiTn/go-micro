@@ -1,0 +1,66 @@
+{{define "content"}}
+<div class="shell">
+    <header class="hero">
+        <p class="brand">Go Micro</p>
+        <h1>API Console</h1>
+        <p class="lede">Call broker across auth, mail, and every log transport - HTTP, RPC, gRPC, and RabbitMQ.</p>
+        <p class="meta">Broker <code id="brokerLabel">{{.BrokerURL}}</code></p>
+    </header>
+
+    <main class="console">
+        <section class="controls" aria-label="Request builder">
+            <div class="field">
+                <span class="label">Action</span>
+                <div class="seg" role="tablist" id="actionSeg">
+                    <button type="button" class="seg-btn is-active" data-action="ping">Ping</button>
+                    <button type="button" class="seg-btn" data-action="auth">Auth</button>
+                    <button type="button" class="seg-btn" data-action="log">Log</button>
+                    <button type="button" class="seg-btn" data-action="mail">Mail</button>
+                </div>
+            </div>
+
+            <div class="field" id="transportField" hidden>
+                <span class="label">Log transport</span>
+                <div class="seg" role="tablist" id="transportSeg">
+                    <button type="button" class="seg-btn is-active" data-transport="rpc">RPC</button>
+                    <button type="button" class="seg-btn" data-transport="http">HTTP</button>
+                    <button type="button" class="seg-btn" data-transport="grpc">gRPC</button>
+                    <button type="button" class="seg-btn" data-transport="rabbit">RabbitMQ</button>
+                </div>
+            </div>
+
+            <div class="field">
+                <label class="label" for="payload">Request body</label>
+                <textarea id="payload" spellcheck="false" rows="12"></textarea>
+            </div>
+
+            <div class="actions">
+                <button type="button" class="primary" id="sendBtn">Send request</button>
+                <button type="button" class="ghost" id="resetBtn">Reset defaults</button>
+                <span class="status" id="statusLine" aria-live="polite"></span>
+            </div>
+        </section>
+
+        <section class="panels" aria-label="Exchange">
+            <article class="panel">
+                <header>
+                    <h2>Sent</h2>
+                    <span class="hint">Outbound JSON</span>
+                </header>
+                <pre id="sent"><span class="muted">Nothing sent yet</span></pre>
+            </article>
+            <article class="panel">
+                <header>
+                    <h2>Received</h2>
+                    <span class="hint">Broker response</span>
+                </header>
+                <pre id="received"><span class="muted">Nothing received yet</span></pre>
+            </article>
+        </section>
+    </main>
+
+    <footer class="foot">
+        <p>Local demo stack - Mailhog SMTP, guest RabbitMQ, no TLS. Import <code>docs/postman/go-micro.postman_collection.json</code> for API-only runs.</p>
+    </footer>
+</div>
+{{end}}

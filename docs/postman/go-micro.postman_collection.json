@@ -1,0 +1,131 @@
+{
+  "info": {
+    "name": "Go Micro",
+    "description": "Broker and downstream service requests for the Go Micro portfolio stack.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "broker_url", "value": "http://localhost:8080" },
+    { "key": "auth_url", "value": "http://localhost:8081" },
+    { "key": "mail_url", "value": "http://localhost:8082" },
+    { "key": "demo_email", "value": "admin@example.com" },
+    { "key": "demo_password", "value": "verysecret" }
+  ],
+  "item": [
+    {
+      "name": "Broker",
+      "item": [
+        {
+          "name": "Ping",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{}" },
+            "url": "{{broker_url}}/"
+          }
+        },
+        {
+          "name": "Authenticate",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"action\": \"auth\",\n  \"auth\": {\n    \"email\": \"{{demo_email}}\",\n    \"password\": \"{{demo_password}}\"\n  }\n}"
+            },
+            "url": "{{broker_url}}/handle"
+          }
+        },
+        {
+          "name": "Log via RPC",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"action\": \"log\",\n  \"transport\": \"rpc\",\n  \"log\": { \"name\": \"postman\", \"data\": \"rpc log\" }\n}"
+            },
+            "url": "{{broker_url}}/handle"
+          }
+        },
+        {
+          "name": "Log via HTTP",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"action\": \"log\",\n  \"transport\": \"http\",\n  \"log\": { \"name\": \"postman\", \"data\": \"http log\" }\n}"
+            },
+            "url": "{{broker_url}}/handle"
+          }
+        },
+        {
+          "name": "Log via gRPC",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"action\": \"log\",\n  \"transport\": \"grpc\",\n  \"log\": { \"name\": \"postman\", \"data\": \"grpc log\" }\n}"
+            },
+            "url": "{{broker_url}}/handle"
+          }
+        },
+        {
+          "name": "Log via RabbitMQ",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"action\": \"log\",\n  \"transport\": \"rabbit\",\n  \"log\": { \"name\": \"log\", \"data\": \"rabbit log\" }\n}"
+            },
+            "url": "{{broker_url}}/handle"
+          }
+        },
+        {
+          "name": "Send mail",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"action\": \"mail\",\n  \"mail\": {\n    \"from\": \"console@go-micro.local\",\n    \"to\": \"demo@example.com\",\n    \"subject\": \"Postman mail test\",\n    \"message\": \"Hello from Postman\"\n  }\n}"
+            },
+            "url": "{{broker_url}}/handle"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Direct services",
+      "item": [
+        {
+          "name": "Auth authenticate",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{demo_email}}\",\n  \"password\": \"{{demo_password}}\"\n}"
+            },
+            "url": "{{auth_url}}/authenticate"
+          }
+        },
+        {
+          "name": "Mail send",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"from\": \"console@go-micro.local\",\n  \"to\": \"demo@example.com\",\n  \"subject\": \"Direct mail\",\n  \"message\": \"Bypass broker\"\n}"
+            },
+            "url": "{{mail_url}}/send"
+          }
+        }
+      ]
+    }
+  ]
+}
