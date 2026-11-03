@@ -1,101 +1,83 @@
 # Go Micro
 
-A production-minded Go microservices portfolio project: an API gateway (broker) fans out to authentication, logging, and mail services over **HTTP**, **net/rpc**, **gRPC**, and **RabbitMQ**.
+[![CI](https://github.com/andreiTn/go-micro/actions/workflows/ci.yml/badge.svg)](https://github.com/andreiTn/go-micro/actions/workflows/ci.yml)
 
-Originally based on a Udemy course stack; this repo has been refactored for consistent style, shared packages, env-driven config, tests, and CI/CD.
+I started this from a Udemy Go microservices course.
 
-## Architecture
+This repo is that project after a cleanup pass: shared packages, config from env, proper Docker setup, tests, and CI. The interesting part of the course is still here — one broker talking to other services over **HTTP**, **net/rpc**, **gRPC**, and **RabbitMQ**.
 
-```text
-Browser / Postman
-        │
-        ▼
-   front-end (:8088)  ──►  broker-service (:8080)
-                              │
-          ┌───────────────────┼───────────────────┐
-          ▼                   ▼                   ▼
- authentication (:8081)   logger-service      mail-service (:8082)
-          │              HTTP / RPC / gRPC          │
-          ▼                   ▲                   ▼
-       Postgres            MongoDB              Mailhog
-                              ▲
-                     listener-service ◄── RabbitMQ (logs_topic)
-```
+## How it fits together
 
-| Service | Role |
-|---------|------|
-| **broker-service** | Edge API (`/handle`, `/log-grpc`) |
-| **authentication-service** | Email/password auth against Postgres |
-| **logger-service** | Persist logs (HTTP + RPC `:5001` + gRPC `:50001`) |
-| **mail-service** | SMTP via Mailhog |
-| **listener-service** | Consumes RabbitMQ topic → logger HTTP |
-| **front-end** | API Console playground |
+Everything goes through the **broker** on port `8080`. The little **API Console** (`:8088`) is just a front-end that hits the broker so you can click around without Postman.
 
-Shared modules live under [`pkg/`](pkg/) and [`contracts/`](contracts/) (single `logs.proto`).
+- **Auth** checks email/password against Postgres, then tells the logger someone logged in.
+- **Logger** writes to Mongo. You can reach it three ways from the broker (plain HTTP, old-school RPC, or gRPC), or publish to RabbitMQ and let the **listener** forward the message.
+- **Mail** sends through Mailhog so you can peek at messages in the browser (`:8025`) instead of a real inbox.
 
-## Quick start
+Shared stuff lives in [`pkg/`](pkg/) (JSON helpers, config, Rabbit dial, HTTP server). The gRPC contract is a single proto under [`contracts/`](contracts/).
 
-**Requirements:** Docker + Docker Compose, Go 1.27+ (for local builds/tests).
+| Service | What it does |
+|---------|----------------|
+| broker-service | Gateway — `/handle` and `/log-grpc` |
+| authentication-service | Login against Postgres |
+| logger-service | Store logs (HTTP + RPC `:5001` + gRPC `:50001`) |
+| mail-service | SMTP via Mailhog |
+| listener-service | RabbitMQ consumer → logger |
+| front-end | API Console |
+
+## Run it
+
+Needs Docker Compose. Go 1.27+ if you want to build/test outside containers.
 
 ```bash
 cp project/.env.example project/.env
-make up
+docker compose -f project/docker-compose.yml --env-file project/.env up --build -d
 ```
 
-- API Console: http://localhost:8088  
-- Broker: http://localhost:8080  
-- Mailhog UI: http://localhost:8025
+(If you have Make: `make up`.)
 
-Demo credentials: `admin@example.com` / `verysecret`
+Then open:
 
-> Postgres init scripts only run on a **fresh** volume. If auth fails after an upgrade, delete `project/db-data/postgres` and `make up` again.
+- Console → http://localhost:8088
+- Broker → http://localhost:8080
+- Mailhog → http://localhost:8025
 
-## Log transports
+Demo login: `admin@example.com` / `verysecret`
 
-`POST /handle` with `"action":"log"` accepts optional `"transport"`:
+Postgres only seeds on a fresh volume. If login fails after you've already run things once, wipe `project/db-data/postgres` and bring the stack up again.
 
-| Value | Path |
-|-------|------|
-| `rpc` (default) | `net/rpc` → logger `:5001` |
-| `http` | HTTP → logger `/log` |
-| `grpc` | gRPC → logger `:50001` |
-| `rabbit` | Publish to `logs_topic` → listener → logger |
+## Trying the log transports
 
-The API Console and [Postman collection](docs/postman/go-micro.postman_collection.json) expose every path.
+On `POST /handle` with `"action": "log"`, set `"transport"` to one of:
 
-## Configuration
+| `transport` | What happens |
+|-------------|--------------|
+| `rpc` (default) | broker → logger over `net/rpc` |
+| `http` | broker → logger `/log` |
+| `grpc` | broker → logger gRPC |
+| `rabbit` | broker publishes to `logs_topic`, listener picks it up |
 
-All runtime knobs are environment variables. See [`project/.env.example`](project/.env.example).
+Same flows are in the console and in [`docs/postman/`](docs/postman/).
 
-Notable variables: `DSN`, `RABBITMQ_URL`, `MONGO_*`, `AUTH_URL`, `LOGGER_*`, `MAIL_*`, `BROKER_URL`, `TEMPLATES_DIR`, `LOG_LEVEL`, `SHUTDOWN_TIMEOUT`.
+## Config
 
-## Local development
+Env vars only — see [`project/.env.example`](project/.env.example). The usual ones: `DSN`, `RABBITMQ_URL`, `MONGO_*`, service URLs, `LOG_LEVEL`, `SHUTDOWN_TIMEOUT`.
+
+## Dev commands
 
 ```bash
-make tidy    # go mod tidy across modules
-make test    # unit tests
-make lint    # go vet
-make build   # binaries → bin/
+make tidy
+make test
+make lint
+make build
 ```
 
-Workspace entrypoint: [`go.work`](go.work).
+On Windows without Make, run the `go test` / `go vet` bits per module, or the compose command above.
 
-## CI/CD
+## CI
 
-- **CI** ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)): vet, test, Docker build matrix  
-- **CD** ([`.github/workflows/cd.yml`](.github/workflows/cd.yml)): push images to `ghcr.io/<owner>/go-micro-<service>`
+Pushes and PRs run vet + tests + a Docker build for each service (`.github/workflows/ci.yml`). Tags / `main` can push images to GHCR via the CD workflow.
 
-## Postman
+## What's intentionally not here
 
-Import:
-
-1. [`docs/postman/go-micro.postman_collection.json`](docs/postman/go-micro.postman_collection.json)
-2. [`docs/postman/go-micro.postman_environment.json`](docs/postman/go-micro.postman_environment.json)
-
-## Intentional local-demo choices
-
-No JWT/OAuth rewrite, mTLS, or full OpenTelemetry - the goal is a clean, showcaseable multi-protocol microservices demo that still looks production-minded (graceful shutdown, health probes, structured logs, shared packages, CI).
-
-## License
-
-Use freely for portfolio / learning purposes.
+No JWT rewrite, no mTLS, no full observability stack. It's still a local demo — just one I'd actually show someone, with graceful shutdown, health checks, structured logs, and CI instead of course leftovers.
